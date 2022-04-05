@@ -1,4 +1,4 @@
-from typing import IO, Union
+from typing import Any, Union
 import pandas as pd
 
 from sqlalchemy import create_engine
@@ -123,7 +123,7 @@ data_types = {
 # BUG: Data is not sanity checked before being imported, which can corrupt the database.
 # BUG: Since pandas indexes always start from 0, if there is already data present in the database,
 # appending will fail due to duplicate primary keys.
-def import_data(con: Union[Engine, Connection], data: IO, replace: bool = True) -> int:
+def import_data(con: Union[Engine, Connection], data: Any, replace: bool = True) -> int:
     """
     Import data from an excel file into the database.
 
@@ -131,12 +131,11 @@ def import_data(con: Union[Engine, Connection], data: IO, replace: bool = True) 
     :param data: excel file.
     :param replace: whether to drop existing database.
     """
-    # import from excel data
-    df: pd.DataFrame = pd.read_excel(data)
-    # rename columns
-    df = df.rename(name_map, axis="columns")
-    # use dataframe row index as id
-    rows_affected = df.to_sql(
+    # TODO: get some decent stubs for pandas
+    df: pd.DataFrame = pd.read_excel(data)  # type: ignore[attr-defined]
+    # I have absolutely no idea what mypy is complaining about for these two.
+    df = df.rename(name_map, axis="columns")  # type: ignore[call-overload]
+    rows_affected = df.to_sql(  # type: ignore[operator]
         "games",
         con,
         if_exists="replace" if replace else "append",
