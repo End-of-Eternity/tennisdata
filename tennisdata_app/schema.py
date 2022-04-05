@@ -9,7 +9,7 @@ class Game(BaseModel):
     Pydantic model for a tennis game.
     """
 
-    id: int
+    id: str
     ATP: int
     location: str
     tournament: str

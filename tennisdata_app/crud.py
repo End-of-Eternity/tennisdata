@@ -9,7 +9,7 @@ DEFAULT_LIMIT = 10
 Filter = dict[str, Union[int, str, None]]
 
 
-def get_game(db: Session, game_id: int) -> Optional[Game]:
+def get_game(db: Session, game_id: str) -> Optional[Game]:
     """
     Get game by id.
     """

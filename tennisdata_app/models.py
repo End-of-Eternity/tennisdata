@@ -1,4 +1,4 @@
-from sqlalchemy import Date, Column, Integer, String, Float, BigInteger
+from sqlalchemy import Date, Column, Integer, String, Float
 
 from .database import Base
 
@@ -12,9 +12,7 @@ class Game(Base):
 
     __tablename__ = "games"
 
-    # dunno why pandas insits on this being a bigint but oh well.
-    # TODO: Make id an Integer
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(String, primary_key=True, index=True)
     ATP = Column(Integer, index=True)
     location = Column(String, index=True)
     tournament = Column(String, index=True)

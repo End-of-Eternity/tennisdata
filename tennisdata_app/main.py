@@ -26,7 +26,7 @@ def read_root() -> NoReturn:
 
 
 @app.get("/games/{game_id}", response_model=schema.Game, summary="Get game by id")
-def read_game(game_id: int, db: Session = Depends(get_db)) -> models.Game:
+def read_game(game_id: str, db: Session = Depends(get_db)) -> models.Game:
     """
     Read game by id.
 
@@ -106,5 +106,5 @@ async def upload_data(file: bytes = File(...), replace: bool = True, db: Session
         else:
             # TODO: handle properly
             raise HTTPException(status_code=500, detail="Internal server error")
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid file format")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=e.args[0])

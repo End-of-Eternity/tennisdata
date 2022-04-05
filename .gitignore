@@ -2,3 +2,4 @@ env
 .vscode
 tennisdata_app.db
 tennisdata_app/__pycache__
+.mypy_cache

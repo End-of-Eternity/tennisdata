@@ -1,11 +1,12 @@
-from typing import Any, Union
+from typing import Any, Type, Union
 import pandas as pd
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine, Connection
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.types import Integer, String, Float, Date
+
+# TODO: get some decent stubs for pandas so I dont need all these type ignores
 
 # Perhaps this should be set in a dotenv?
 SQLALCHEMY_DATABASE_URL = "sqlite:///./tennisdata_app.db"
@@ -65,64 +66,55 @@ name_map = {
 }
 
 # enforce column data types
-data_types = {
-    "id": Integer(),
-    "ATP": Integer(),
-    "location": String(),
-    "tournament": String(),
-    "date": Date(),
-    "series": String(),
-    "court": String(),
-    "surface": String(),
-    "round": String(),
-    "best_of": Integer(),
-    "winner": String(),
-    "loser": String(),
-    "w_rank": Integer(),
-    "l_rank": Integer(),
-    "w_pts": Integer(),
-    "l_pts": Integer(),
-    "w1": Integer(),
-    "l1": Integer(),
-    "w2": Integer(),
-    "l2": Integer(),
-    "w3": Integer(),
-    "l3": Integer(),
-    "w4": Integer(),
-    "l4": Integer(),
-    "w5": Integer(),
-    "l5": Integer(),
-    "w_sets": Integer(),
-    "l_sets": Integer(),
-    "comment": String(),
-    "b365_w": Float(),
-    "b365_l": Float(),
-    "ex_w": Float(),
-    "ex_l": Float(),
-    "lb_w": Float(),
-    "lb_l": Float(),
-    "ps_w": Float(),
-    "ps_l": Float(),
-    "sj_w": Float(),
-    "sj_l": Float(),
-    "max_w": Float(),
-    "max_l": Float(),
-    "avg_w": Float(),
-    "avg_l": Float(),
+data_types: dict[str, Union[str, Type[str], Type[float]]] = {
+    "ATP": int,
+    "Location": str,
+    "Tournament": str,
+    "Date": "datetime64[ns]",
+    "Series": str,
+    "Court": str,
+    "Surface": str,
+    "Round": str,
+    "Best of": int,
+    "Winner": str,
+    "Loser": str,
+    "WRank": int,
+    "LRank": int,
+    "WPts": int,
+    "LPts": int,
+    "W1": int,
+    "L1": int,
+    "W2": int,
+    "L2": int,
+    "W3": int,
+    "L3": int,
+    "W4": int,
+    "L4": int,
+    "W5": int,
+    "L5": int,
+    "Wsets": int,
+    "Lsets": int,
+    "Comment": str,
+    "B365W": float,
+    "B365L": float,
+    "EXW": float,
+    "EXL": float,
+    "LBW": float,
+    "LBL": float,
+    "PSW": float,
+    "PSL": float,
+    "SJW": float,
+    "SJL": float,
+    "MaxW": float,
+    "MaxL": float,
+    "AvgW": float,
+    "AvgL": float,
 }
 
 # endregion: maps
 
 
-# ideally I would validate imported data instead of copying it into the database, as currently it is
-# possible for some of the input to be invalid, which causes an error upon a get request for that row.
-# bit annoying that pandas doesn't do this for me even with dtype=data_types :/
-# it would also be better for this to be handled entirely in crud.py, and ideally without the extra
-# pandas dependancy
-
-# BUG: Data is not sanity checked before being imported, which can corrupt the database.
-# BUG: Since pandas indexes always start from 0, if there is already data present in the database,
-# appending will fail due to duplicate primary keys.
+# ideally this should be handled entirely in crud.py, and I don't like how hacky this method of insertion is.
 def import_data(con: Union[Engine, Connection], data: Any, replace: bool = True) -> int:
     """
     Import data from an excel file into the database.
@@ -131,15 +123,46 @@ def import_data(con: Union[Engine, Connection], data: Any, replace: bool = True)
     :param data: excel file.
     :param replace: whether to drop existing database.
     """
-    # TODO: get some decent stubs for pandas
-    df: pd.DataFrame = pd.read_excel(data)  # type: ignore[attr-defined]
+    try:
+        df: pd.DataFrame = pd.read_excel(data)  # type: ignore[attr-defined]
+    except ValueError:
+        raise ValueError("Invalid Excel file.")
+    df = sanitise_data(df)
+    # generate unique id for each row. type ignore because bad stubs
+    df.insert(0, "id", df.apply(generate_id_from_row, axis=1))  # type: ignore[arg-type]
     # I have absolutely no idea what mypy is complaining about for these two.
     df = df.rename(name_map, axis="columns")  # type: ignore[call-overload]
     rows_affected = df.to_sql(  # type: ignore[operator]
-        "games",
-        con,
-        if_exists="replace" if replace else "append",
-        index_label="id",
-        dtype=data_types,
+        "games", con, if_exists="replace" if replace else "append", index=False
     )
     return rows_affected or 0
+
+
+def sanitise_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Check column names, and ensure all data types are correct.
+
+    :param df: dataframe to sanitise.
+    :return: sanitised dataframe.
+    """
+    if set(df.columns) != set(name_map.keys()):
+        raise ValueError(f"{list(df.columns)}\n{name_map.keys()}")
+    # fill missing values with 0
+    dtype_int = [col for col, dtype in data_types.items() if dtype == int]
+    df[dtype_int] = df[dtype_int].fillna(0)
+    df = df.astype(data_types)  # type: ignore[arg-type]
+    return df
+
+
+# mypy wants type params for row, but giving them causes a type error at runtime.
+def generate_id_from_row(row: pd.Series) -> str:  # type: ignore[type-arg]
+    """
+    Generate a unique id from a single game row.
+
+    :param row: row of data.
+    :return: unique id.
+    """
+    datestr = row["Date"].strftime("%Y%m%d")
+    # theoretically this could fail if two players play each other twice on the same day with the same winner.
+    # I doubt that this would actually happen in a tournament.
+    return f"{datestr}_{row['Winner']}_{row['Loser']}".replace(" ", "").replace(".", "")
