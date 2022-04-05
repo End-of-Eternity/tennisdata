@@ -1,0 +1,7 @@
+uvicorn>=0.17.6
+fastapi>=0.75.1
+sqlalchemy>=1.4.34
+pandas>=1.4.2
+python-multipart>=0.0.5
+xlrd>=1.0.0
+openpyxl>=3.0.9

@@ -1,0 +1,4 @@
+env
+.vscode
+tennisdata_app.db
+tennisdata_app/__pycache__
